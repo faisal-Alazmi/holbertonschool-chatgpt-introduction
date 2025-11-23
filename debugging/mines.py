@@ -10,8 +10,8 @@ class Minesweeper:
         self.width = width
         self.height = height
         self.mines = set(random.sample(range(width * height), mines))
-        self.field = [[' ' for _ in range(width)] for _ in range(height)]
         self.revealed = [[False for _ in range(width)] for _ in range(height)]
+        self.total_safe_cells = width * height - len(self.mines)
 
     def print_board(self, reveal=False):
         clear_screen()
@@ -40,16 +40,40 @@ class Minesweeper:
         return count
 
     def reveal(self, x, y):
+        # Out of bounds
+        if not (0 <= x < self.width and 0 <= y < self.height):
+            return True
+
+        # Already revealed
+        if self.revealed[y][x]:
+            return True
+
+        # Hit mine
         if (y * self.width + x) in self.mines:
             return False
+
+        # Reveal this cell
         self.revealed[y][x] = True
+
+        # Expand zero cells
         if self.count_mines_nearby(x, y) == 0:
             for dx in [-1, 0, 1]:
                 for dy in [-1, 0, 1]:
                     nx, ny = x + dx, y + dy
-                    if 0 <= nx < self.width and 0 <= ny < self.height and not self.revealed[ny][nx]:
-                        self.reveal(nx, ny)
+                    if 0 <= nx < self.width and 0 <= ny < self.height:
+                        if not self.revealed[ny][nx]:
+                            self.reveal(nx, ny)
+
         return True
+
+    def has_won(self):
+        revealed_safe = 0
+        for y in range(self.height):
+            for x in range(self.width):
+                cell_id = y * self.width + x
+                if self.revealed[y][x] and cell_id not in self.mines:
+                    revealed_safe += 1
+        return revealed_safe == self.total_safe_cells
 
     def play(self):
         while True:
@@ -58,16 +82,17 @@ class Minesweeper:
                 x = int(input("Enter x coordinate: "))
                 y = int(input("Enter y coordinate: "))
 
-                # Hit a mine → lose
+                # Out of range
+                if not (0 <= x < self.width and 0 <= y < self.height):
+                    print("Coordinates out of range. Try again.")
+                    continue
+
                 if not self.reveal(x, y):
                     self.print_board(reveal=True)
                     print("Game Over! You hit a mine.")
                     break
 
-                # WIN CHECK HERE
-                revealed_count = sum(sum(1 for cell in row if cell) for row in self.revealed)
-                total_cells = self.width * self.height
-                if revealed_count == total_cells - len(self.mines):
+                if self.has_won():
                     self.print_board(reveal=True)
                     print("Congratulations! You've won the game.")
                     break
